@@ -1,0 +1,7 @@
+# 屏蔽 Python 的虚拟环境盒（里面有几万个小文件，千万不能传）
+backend/venv/
+.venv/
+
+# 屏蔽 Python 运行产生的缓存
+__pycache__/
+backend/__pycache__/

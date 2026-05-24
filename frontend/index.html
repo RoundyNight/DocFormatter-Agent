@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Agent - 文档智能排版助手</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>AI 排版助手</h2>
+            <div class="chat-box" id="chatBox">
+                <p class="bot-msg">欢迎使用！我已经成功读取了您的文档。您可以在下方输入排版指令，例如：“将一级标题改成黑体、二号字”。</p>
+            </div>
+            <div class="input-area">
+                <input type="text" id="userInput" placeholder="输入您的排版指令...">
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <h2>📄 文档结构实时预览</h2>
+            <div class="file-info">
+                当前测试文件: <span id="fileName">未加载</span>
+            </div>
+            <div class="doc-tree" id="docTree">
+                <p style="color: #999;">正在全力加载文档结构...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
