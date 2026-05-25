@@ -1,16 +1,16 @@
 // 1. 指定后端的门牌号（API 地址）
-const BACKEND_URL = "http://127.0.0.1:8000/api/parse-doc";
-
-// 2. 当网页一加载完毕，立刻启动我们的“抓取任务”
+const BACKEND_URL = "";
+const BACKEND_URL = "http://127.0.0.1:8000/api/raw-doc";
+// 2. 当网页加载完毕启动“抓取任务”
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("前端灵魂脚本已通电，准备去后端抓取数据...");
+    console.log("准备抓取数据...");
     fetchDocumentStructure();
 });
 
 // 3. 核心函数：连接后端并把数据画在网页上
 async function fetchDocumentStructure() {
     try {
-        // 第一步：网线通电，伸手抓数据
+        // 第一步：抓数据
         const response = await fetch(BACKEND_URL);
         const result = await response.json();
         
@@ -23,8 +23,7 @@ async function fetchDocumentStructure() {
             const docTreeContainer = document.getElementById("docTree");
             docTreeContainer.innerHTML = ""; // 清空加载提示
 
-            // 2. 因为后端直接 get 了 /body，现在的数据结构直接就是 body 节点本身了！
-            // 真正的那 16 个段落就静静躺在 result.data.data.results[0].children 里面
+            // 2. 因为后端直接 get 了 /body，现在的数据结构直接就是 body 节点本身
             const paragraphs = result.data?.data?.results?.[0]?.children || [];
 
             if (paragraphs.length === 0) {
@@ -32,17 +31,16 @@ async function fetchDocumentStructure() {
                 return;
             }
 
-            // 遍历这 16 个段落
             paragraphs.forEach(node => {
                 // 过滤掉节属性（section），只显示段落
                 if (node.type === "section") return;
 
                 const pElement = document.createElement("p");
                 
-                // 1. 修正：直接从 node.text 拿文字！
+                // 1. 修正：直接从 node.text 拿文字
                 const text = node.text || ""; 
                 
-                // 2. 修正：直接从 node.style 拿样式！
+                // 2. 修正：直接从 node.style 拿样式
                 const type = node.style || node.type || "Normal";
 
                 // 给特殊的标题套上漂亮的外壳类名

@@ -5,3 +5,5 @@ backend/venv/
 # 屏蔽 Python 运行产生的缓存
 __pycache__/
 backend/__pycache__/
+backend/dump_raw.py
+backend/raw_output.json

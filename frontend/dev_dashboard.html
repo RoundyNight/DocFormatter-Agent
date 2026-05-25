@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>过滤器 (Dehydrator) 效果检验台</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .container { display: flex; gap: 20px; height: calc(100vh - 100px); }
+        .panel { flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { padding: 15px; background: #e2e8f0; font-weight: bold; border-bottom: 1px solid #cbd5e1; }
+        .panel-content { padding: 15px; overflow-y: auto; flex: 1; }
+        
+        /* JSON 代码高亮区域 */
+        pre { margin: 0; font-family: 'Courier New', monospace; font-size: 13px; color: #333; white-space: pre-wrap; }
+        
+        /* 文档还原区域的辅助样式 */
+        .doc-paragraph { margin-bottom: 10px; padding: 5px; border-left: 3px solid transparent; transition: all 0.2s; }
+        .doc-paragraph:hover { background: #f8fafc; border-left-color: #3b82f6; }
+        .path-badge { font-size: 10px; color: #94a3b8; display: block; margin-bottom: 4px; font-family: monospace; }
+        
+        /* 简易表格还原 */
+        table.doc-table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
+        table.doc-table td { border: 1px solid #cbd5e1; padding: 8px; vertical-align: top; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dehydrator 质量检验台</h1>
+        <div id="status">正在连接 WSL 后端...</div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">简化后JSON</div>
+            <div class="panel-content">
+                <pre id="jsonViewer">加载中...</pre>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">脱水后格式还原</div>
+            <div class="panel-content" id="visualViewer">
+                加载中...
+            </div>
+        </div>
+    </div>
+
+    <script src="dev_script.js"></script>
+</body>
+</html>
