@@ -66,7 +66,7 @@ function renderParagraph(node) {
     const p = document.createElement("p");
     p.style.margin = "0";
 
-    // 将脱水器保留的样式还原为 CSS（用于肉眼校验）
+    // 将过滤器保留的样式还原为 CSS（用于肉眼校验）
     if (node.is_bold) p.style.fontWeight = "bold";
     if (node.is_italic) p.style.fontStyle = "italic";
     if (node.color) p.style.color = node.color;

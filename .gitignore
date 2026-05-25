@@ -7,3 +7,8 @@ __pycache__/
 backend/__pycache__/
 backend/dump_raw.py
 backend/raw_output.json
+test-docs/test.docx
+.gitignore
+test-docs/test.docx
+test-docs/~$test.docx
+backend/workspace/current.docx

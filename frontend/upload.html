@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传文档 - AI 排版助手</title>
+    <style>
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .upload-card {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+            max-width: 400px;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 15px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-card">
+        <h2>📄 上传您的 Word 文档</h2>
+        <p>支持 .docx 格式，上传后将自动解析并展示大纲</p>
+        <input type="file" id="fileInput" accept=".docx">
+        <br>
+        <button id="uploadBtn">上传并查看大纲</button>
+        <div id="status"></div>
+    </div>
+    <script src="upload.js"></script>
+</body>
+</html>

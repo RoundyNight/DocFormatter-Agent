@@ -2,13 +2,13 @@
 import json
 from collections import Counter
 
-# 1. 基础皮肤普查（绝对不含缩进、段前段后等结构化属性，防止格式污染）
+# 1. 基础样式普查（不含缩进、段前段后等结构化属性，防止格式污染）
 DYNAMIC_CHECK_KEYS = [
     "effective.font.eastAsia", "effective.font.ascii", 
     "effective.size", "effective.bold", "effective.italic", "effective.color"
 ]
 
-# 2. 我们关心的全量核心清单
+# 2. OfficeCli拆解的json中，所保留的样式元素清单
 CORE_STYLE_KEYS = [
     "effective.font.eastAsia", "effective.font.ascii", "effective.size",
     "effective.bold", "effective.italic", "effective.underline", "effective.strike",
@@ -21,7 +21,7 @@ CORE_STYLE_KEYS = [
 
 def calculate_dynamic_baseline(raw_nodes):
     """
-    【第一遍扫描】：全文档基本属性动态普查
+    【第一遍扫描】：全文档基本样式动态普查
     """
     style_counters = {key: Counter() for key in DYNAMIC_CHECK_KEYS}
 
@@ -63,11 +63,11 @@ def extract_smart_styles(format_dict, baseline):
             val = format_dict.get("color")
             
         if val is not None:
-            # 1. 如果跟全篇皮肤一样，忽略
+            # 1. 如果跟全篇样式相同则忽略
             if val == baseline.get(key):
                 continue
                 
-            # 2. 如果不是基本属性，且值是默认的无用状态 (none/False/0pt)，忽略
+            # 2. 如果不是基本属性，且值是默认的无用状态 (none/False/0pt)忽略
             if key not in baseline and val in ["none", False, "", "0pt"]:
                 continue
 
@@ -98,7 +98,7 @@ def process_paragraph(node, document_baseline, state_tracker):
     parent_styles = extract_smart_styles(format_dict, document_baseline)
     
     # 状态继承法 (Run-Length Encoding)
-    # 如果当前脱水后的样式，跟状态机里记录的上一个段落一模一样
+    # 如果当过滤后的样式，跟状态机里记录的上一个段落一模一样
     if parent_styles == state_tracker.get("last_styles"):
         pass # 直接忽略什么都不往 clean_node 里加
     else:
