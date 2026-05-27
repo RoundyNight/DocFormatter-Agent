@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchDehydratedData();
 });
 
+// 从后端获取脱水后的 JSON 数据，并分别渲染左侧的纯 JSON 和右侧的视觉还原
 async function fetchDehydratedData() {
     const statusEl = document.getElementById("status");
     try {
@@ -32,9 +33,7 @@ async function fetchDehydratedData() {
     }
 }
 
-// ==========================================
 // 文档还原引擎（检验格式是否丢失）
-// ==========================================
 function renderVisuals(nodes) {
     const container = document.getElementById("visualViewer");
     container.innerHTML = ""; // 清空
@@ -53,6 +52,7 @@ function renderVisuals(nodes) {
     });
 }
 
+// 根据脱水后的 JSON 节点渲染段落，保留智能样式属性，并显示路径信息
 function renderParagraph(node) {
     const div = document.createElement("div");
     div.className = "doc-paragraph";
@@ -67,10 +67,10 @@ function renderParagraph(node) {
     p.style.margin = "0";
 
     // 将过滤器保留的样式还原为 CSS（用于肉眼校验）
-    if (node.is_bold) p.style.fontWeight = "bold";
-    if (node.is_italic) p.style.fontStyle = "italic";
+    if (node.bold) p.style.fontWeight = "bold";            // 原 is_bold -> bold
+    if (node.italic) p.style.fontStyle = "italic";
     if (node.color) p.style.color = node.color;
-    if (node.align) p.style.textAlign = node.align;
+    if (node.alignment) p.style.textAlign = node.alignment;
     if (node.size) p.style.fontSize = node.size;
     if (node.font_cn || node.font_en) p.style.fontFamily = `"${node.font_cn || ''}", "${node.font_en || ''}", sans-serif`;
 
@@ -79,13 +79,11 @@ function renderParagraph(node) {
         node.runs.forEach(run => {
             const span = document.createElement("span");
             span.innerText = run.text;
-            
-            // 还原局部突变格式
-            if (run.is_bold) span.style.fontWeight = "bold";
-            if (run.is_italic) span.style.fontStyle = "italic";
+            if (run.bold) span.style.fontWeight = "bold";
+            if (run.italic) span.style.fontStyle = "italic";
             if (run.color) span.style.color = run.color;
             if (run.size) span.style.fontSize = run.size;
-            
+            if (run["font-eastasia"]) span.style.fontFamily = run["font-eastasia"];
             p.appendChild(span);
         });
     } else {
@@ -98,6 +96,7 @@ function renderParagraph(node) {
     return div;
 }
 
+// 根据脱水后的 JSON 节点渲染表格，递归处理行、单元格和段落，并显示路径信息
 function renderTable(tableNode) {
     const wrapper = document.createElement("div");
     

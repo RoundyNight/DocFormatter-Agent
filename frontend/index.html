@@ -4,32 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Document Agent - 文档智能排版助手</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body { margin: 0; font-family: -apple-system, sans-serif; display: flex; height: 100vh; }
+        #sidebar {
+            width: 380px; min-width: 380px;
+            background: #f7f8fa; border-right: 1px solid #ddd;
+            display: flex; flex-direction: column;
+            transition: width 0.3s;
+        }
+        #sidebar.collapsed { width: 40px; min-width: 40px; }
+        #sidebar.collapsed .sidebar-content { display: none; }
+        #toggleSidebar { background: none; border: none; font-size: 20px; cursor: pointer; padding: 10px; align-self: flex-end; }
+        .sidebar-content { padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .config-row { display: flex; gap: 5px; align-items: center; }
+        .config-row input, .config-row select { flex: 1; padding: 5px; }
+        #chatMessages { flex: 1; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 10px; min-height: 200px; }
+        .message { margin-bottom: 12px; padding: 8px; border-radius: 6px; max-width: 100%; word-wrap: break-word; }
+        .message.user { background: #e3f2fd; }
+        .message.ai { background: #f0f0f0; }
+        .message.system { background: #fff3e0; font-size: 0.9em; }
+        .input-row { display: flex; gap: 5px; }
+        .input-row input { flex: 1; padding: 8px; }
+        .input-row button { padding: 8px 15px; cursor: pointer; }
+        .execute-btn { background: #4caf50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .execute-btn:disabled { background: #aaa; cursor: not-allowed; }
+        #mainContent { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; color: #999; font-size: 20px; }
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <h2>AI 排版助手</h2>
-            <div class="chat-box" id="chatBox">
-                <p class="bot-msg">欢迎使用！我已经成功读取了您的文档。您可以在下方输入排版指令，例如：“将一级标题改成黑体、二号字”。</p>
+    <div id="sidebar">
+        <button id="toggleSidebar">☰</button>
+        <div class="sidebar-content">
+            <h3>AI 排版助手</h3>
+            <div class="config-row">
+                <input type="password" id="apiKey" placeholder="DeepSeek API Key">
+                <button id="testConnBtn">测试连接</button>
             </div>
-            <div class="input-area">
-                <input type="text" id="userInput" placeholder="输入您的排版指令...">
+            <div class="config-row">
+                <select id="model">
+                    <option value="deepseek-chat">deepseek-chat</option>
+                    <option value="deepseek-reasoner">deepseek-reasoner</option>
+                    <option value="deepseek-coder">deepseek-coder</option>
+                </select>
+            </div>
+            <div class="config-row">
+                <input type="file" id="uploadInput" accept=".docx" class="hidden">
+                <button id="uploadBtn">上传文档</button>
+                <span id="fileName" style="font-size:0.9em;">未选择</span>
+            </div>
+            <div id="chatMessages">
+                <div class="message system">👉 请：1) 填入 API Key 并测试连接；2) 上传一个 .docx 文档；3) 输入排版指令开始对话。</div>
+            </div>
+            <div class="input-row">
+                <input type="text" id="userInput" placeholder="输入排版指令...">
                 <button id="sendBtn">发送</button>
             </div>
         </div>
-
-        <div class="main-content">
-            <h2>📄 文档结构实时预览</h2>
-            <div class="file-info">
-                当前测试文件: <span id="fileName">未加载</span>
-            </div>
-            <div class="doc-tree" id="docTree">
-                <p style="color: #999;">正在全力加载文档结构...</p>
-            </div>
-        </div>
     </div>
-
-    <script src="script.js"></script>
+    <div id="mainContent">
+        📄 文档编辑器（即将集成 SuperDoc）
+    </div>
+    <script src="chat.js"></script>
 </body>
 </html>
