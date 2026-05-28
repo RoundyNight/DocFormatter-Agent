@@ -76,6 +76,7 @@ uploadInput.addEventListener("change", async (e) => {
         currentDehydratedData = parseData.data;
         fileNameSpan.textContent = file.name;
         appendMessage("system", `已上传并解析文档: ${file.name}`);
+        loadPreview();
     } catch (err) {
         alert("上传或解析出错: " + err.message);
     }
@@ -188,8 +189,10 @@ function addExecuteButton(msgId, operations) {
             const result = await execResp.json();
             if (result.status === "success") {
                 alert("修改已成功应用到文档！");
+                loadPreview();
             } else {
                 alert(`部分操作失败：成功 ${result.success}，失败 ${result.failed}。查看控制台获取详情。`);
+                loadPreview();
                 console.error(result);
             }
         } catch (e) {
@@ -199,4 +202,29 @@ function addExecuteButton(msgId, operations) {
         btn.textContent = "执行这些修改";
     });
     msgDiv.appendChild(btn);
+}
+
+// 下载按钮，触发浏览器下载后端生成的文档文件
+document.getElementById("downloadBtn").addEventListener("click", () => {
+    const link = document.createElement("a");
+    link.href = "http://127.0.0.1:8000/api/download-doc";
+    link.download = ""; // 浏览器将自动使用服务器返回的 filename
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+// 文档预览功能，使用 Mammoth.js 将后端返回的 Word 文档转换为 HTML 并显示在界面上
+async function loadPreview() {
+    const previewDiv = document.getElementById("docPreview");
+    previewDiv.innerHTML = "加载预览中...";
+    try {
+        const resp = await fetch("http://127.0.0.1:8000/api/download-doc");
+        const blob = await resp.blob();
+        // 注意：这里是 renderAsync，不能写成 loadAsync
+        await docx.renderAsync(blob, previewDiv);
+    } catch (error) {
+        previewDiv.innerHTML = `<p style="color:red">预览失败: ${error.message}</p>`;
+        console.error(error);
+    }
 }
