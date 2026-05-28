@@ -124,3 +124,4 @@ function renderTable(tableNode) {
     wrapper.appendChild(table);
     return wrapper;
 }
+

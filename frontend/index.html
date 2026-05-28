@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="jszip.min.js"></script>
+    <script src="docx-preview.min.js"></script>
     <title>AI Document Agent - 文档智能排版助手</title>
     <style>
         body { margin: 0; font-family: -apple-system, sans-serif; display: flex; height: 100vh; }
@@ -28,7 +30,20 @@
         .input-row button { padding: 8px 15px; cursor: pointer; }
         .execute-btn { background: #4caf50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
         .execute-btn:disabled { background: #aaa; cursor: not-allowed; }
-        #mainContent { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; color: #999; font-size: 20px; }
+        #mainContent {
+            flex: 1;
+            overflow: hidden;          /* 禁止主区域滚动 */
+            background: #f0f0f0;
+            position: relative;
+        }
+        #docPreview {
+            width: 100%;
+            height: 100%;           /* 填充父容器 */
+            overflow-y: auto;       /* 文档内容超出时在该区域内滚动 */
+            padding: 20px;
+            box-sizing: border-box;
+            background: white;
+        }
         .hidden { display: none; }
     </style>
 </head>
@@ -51,6 +66,7 @@
             <div class="config-row">
                 <input type="file" id="uploadInput" accept=".docx" class="hidden">
                 <button id="uploadBtn">上传文档</button>
+                <button id="downloadBtn">下载文档</button>
                 <span id="fileName" style="font-size:0.9em;">未选择</span>
             </div>
             <div id="chatMessages">
@@ -63,7 +79,7 @@
         </div>
     </div>
     <div id="mainContent">
-        📄 文档编辑器（即将集成 SuperDoc）
+        <div id="docPreview"></div>
     </div>
     <script src="chat.js"></script>
 </body>

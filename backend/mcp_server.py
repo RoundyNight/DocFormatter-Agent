@@ -42,8 +42,12 @@ async def set_font(para_index: int, font_east_asia: str = None,
                 rFonts = rPr.makeelement(qn('w:rFonts'), {})
                 rPr.insert(0, rFonts)
             rFonts.set(qn('w:ascii'), font_ascii)
-        if font_size:
-            pt_val = float(font_size.replace('pt', ''))
+        if font_size is not None:
+            # 兼容数字和字符串
+            if isinstance(font_size, str):
+                pt_val = float(font_size.replace('pt', ''))
+            else:
+                pt_val = float(font_size)
             run.font.size = Pt(pt_val)
     _save_doc(doc)
     return f"段落 {para_index} 字体已修改"
@@ -97,19 +101,33 @@ async def set_indent(para_index: int, first_line_indent: str = None,
 
 TOOL_MAP["set_indent"] = set_indent
 
-async def set_spacing(para_index: int, line_spacing: float = None,
+#行距和段间距设置，支持倍数和固定值两种模式
+async def set_spacing(para_index: int, line_spacing: str = None,
                       space_before: str = None, space_after: str = None):
+    """
+    设置段间距和行距。
+    line_spacing: 数字(如1.5)表示倍数；字符串"20pt"表示固定值。
+    """
     doc = _get_doc()
     para = _get_paragraph(para_index, doc)
     pf = para.paragraph_format
+
     if line_spacing is not None:
-        pf.line_spacing = line_spacing
+        if isinstance(line_spacing, str) and line_spacing.endswith('pt'):
+            # 固定行距
+            pt_val = float(line_spacing.replace('pt', ''))
+            pf.line_spacing = Pt(pt_val)
+        else:
+            # 倍数
+            pf.line_spacing = float(line_spacing)
+
     if space_before:
-        pf.space_before = Pt(float(space_before.replace("pt", "")))
+        pf.space_before = Pt(float(space_before.replace('pt', '')))
     if space_after:
-        pf.space_after = Pt(float(space_after.replace("pt", "")))
+        pf.space_after = Pt(float(space_after.replace('pt', '')))
+
     _save_doc(doc)
-    return f"段落 {para_index} 间距已修改"
+    return f"段落 {para_index} 间距已设置"
 
 TOOL_MAP["set_spacing"] = set_spacing
 

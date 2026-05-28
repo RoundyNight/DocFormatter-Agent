@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from dehydrator import dehydrate_document, calculate_dynamic_baseline  # 合并导入
 from executor import execute_operations
 from mcp_server import TOOL_MAP # MCP工具清单
+from retriever import match_template # 模板检索函数
+from fastapi.responses import FileResponse # 用于返回文件下载响应
 import httpx
 
 app = FastAPI(title="AI Document Agent Backend")
@@ -164,8 +166,20 @@ async def chat_with_ai(req: ChatRequest):
     except Exception:
         pass
 
+    matched_content = match_template(req.message)
+    template_prompt = ""
+    if matched_content:
+        template_prompt = (
+            "用户指定了如下排版规范，请严格遵循所有细节（字体、字号、行距、缩进等），逐条转换为工具调用。\n"
+            "如果规范中定义了不同部分的样式（如标题、正文、摘要），请根据文档的语义（如“摘要”二字、标题层级）来识别段落角色并执行对应设置。\n"
+            f"排版规范：\n{matched_content}\n\n"
+        )
+    else:
+        template_prompt = "用户未指定特定排版规范，请根据通用美观原则排版。\n"
+
     user_message = (
         f"{baseline_text}"
+        f"{template_prompt}"
         f"以下是用户的文档结构（仅保留有意义的格式差异）：\n"
         f"```json\n{json.dumps(req.dehydrated_data, ensure_ascii=False, indent=2)}\n```\n\n"
         f"以下是用户需求：{req.message}\n请生成操作指令。"
@@ -235,6 +249,18 @@ async def execute_ai_operations(req: ExecuteRequest):
         "status": "success" if success_count == len(req.tool_calls) else "partial_success",
         "details": results
     }
+
+#---------------- 文档下载路由 ----------------
+@app.get("/api/download-doc")
+def download_doc():
+    doc_path = get_current_doc_path()
+    if not os.path.exists(doc_path):
+        raise HTTPException(status_code=404, detail="当前没有可下载的文档")
+    return FileResponse(
+        doc_path,
+        filename=os.path.basename(doc_path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 @app.get("/")
 def read_root():
