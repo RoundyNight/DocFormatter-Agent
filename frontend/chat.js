@@ -1,13 +1,11 @@
 let currentDehydratedData = null;
 
-const toggleSidebarBtn = document.getElementById("toggleSidebar");
-const sidebar = document.getElementById("sidebar");
+// 只保留存在的元素
 const apiKeyInput = document.getElementById("apiKey");
 const modelSelect = document.getElementById("model");
 const testConnBtn = document.getElementById("testConnBtn");
 const uploadInput = document.getElementById("uploadInput");
 const uploadBtn = document.getElementById("uploadBtn");
-const fileNameSpan = document.getElementById("fileName");
 const chatMessages = document.getElementById("chatMessages");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
@@ -25,11 +23,7 @@ modelSelect.addEventListener("change", () => {
     localStorage.setItem("deepseek_model", modelSelect.value);
 });
 
-toggleSidebarBtn.addEventListener("click", () => {
-    sidebar.classList.toggle("collapsed");
-});
-
-// 测试连接按钮，验证 API Key 是否有效，并能成功访问 DeepSeek 的模型列表接口
+// 测试连接
 testConnBtn.addEventListener("click", async () => {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) { alert("请输入 API Key"); return; }
@@ -53,12 +47,11 @@ testConnBtn.addEventListener("click", async () => {
     }
 });
 
-// 上传按钮，触发文件选择对话框
+// 上传
 uploadBtn.addEventListener("click", () => {
     uploadInput.click();
 });
 
-// 文件选择后，上传到后端，并获取解析结果，更新当前脱水数据和界面显示
 uploadInput.addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -74,9 +67,13 @@ uploadInput.addEventListener("change", async (e) => {
         const parseData = await parseResp.json();
         if (parseData.status !== "success") throw new Error("解析文档失败");
         currentDehydratedData = parseData.data;
-        fileNameSpan.textContent = file.name;
         appendMessage("system", `已上传并解析文档: ${file.name}`);
         loadPreview();
+        // 上传成功后启用输入框，开始轮播提示
+        if (userInput) {
+            userInput.placeholder = "试试发送“帮我优化文档格式”";
+            userInput.removeAttribute('readonly');
+        }
     } catch (err) {
         alert("上传或解析出错: " + err.message);
     }
@@ -87,7 +84,6 @@ userInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
 
-// 发送用户消息到后端，并处理 AI 的响应，支持工具调用和原始文本两种情况
 async function sendMessage() {
     const apiKey = apiKeyInput.value.trim();
     const model = modelSelect.value;
@@ -134,7 +130,6 @@ async function sendMessage() {
     }
 }
 
-// 辅助函数：添加消息、删除消息、格式化工具调用列表，以及给 AI 消息添加执行按钮
 function appendMessage(role, text) {
     const div = document.createElement("div");
     div.className = `message ${role}`;
@@ -165,7 +160,6 @@ function formatToolCalls(toolCalls) {
     return html;
 }
 
-// 给每条 AI 消息添加一个执行按钮，点击后会把对应的操作发送到后端执行
 function addExecuteButton(msgId, operations) {
     const msgDiv = document.getElementById(msgId);
     if (!msgDiv) return;
@@ -204,25 +198,28 @@ function addExecuteButton(msgId, operations) {
     msgDiv.appendChild(btn);
 }
 
-// 下载按钮，触发浏览器下载后端生成的文档文件
+// 下载按钮
 document.getElementById("downloadBtn").addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = "http://127.0.0.1:8000/api/download-doc";
-    link.download = ""; // 浏览器将自动使用服务器返回的 filename
+    link.download = "";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 });
 
-// 文档预览功能，使用 Mammoth.js 将后端返回的 Word 文档转换为 HTML 并显示在界面上
+// 预览
 async function loadPreview() {
     const previewDiv = document.getElementById("docPreview");
     previewDiv.innerHTML = "加载预览中...";
     try {
         const resp = await fetch("http://127.0.0.1:8000/api/download-doc");
         const blob = await resp.blob();
-        // 注意：这里是 renderAsync，不能写成 loadAsync
-        await docx.renderAsync(blob, previewDiv);
+        if (typeof docx !== 'undefined' && docx.renderAsync) {
+            await docx.renderAsync(blob, previewDiv);
+        } else {
+            previewDiv.innerHTML = `<p>预览功能需要 docx-preview 库支持</p>`;
+        }
     } catch (error) {
         previewDiv.innerHTML = `<p style="color:red">预览失败: ${error.message}</p>`;
         console.error(error);

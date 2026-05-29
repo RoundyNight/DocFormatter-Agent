@@ -1,0 +1,447 @@
+/* ==================== 全局变量与基础 ==================== */
+:root {
+    --word-blue: #2B579A;          /* Word 经典蓝色 */
+    --word-blue-light: #4472C4;
+    --word-blue-bright: #5B9BD5;
+    --bg-primary: #F3F6FB;
+    --bg-white: #FFFFFF;
+    --text-dark: #1E293B;
+    --text-gray: #94A3B8;
+    --border-gradient: linear-gradient(135deg, #2B579A, #5B9BD5, #82B4F2);
+    --shadow-focus: 0 0 15px rgba(43, 87, 154, 0.3);
+    --shadow-card: 0 4px 12px rgba(0,0,0,0.05);
+    --radius-lg: 24px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --transition: all 0.3s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    height: 100vh;
+    overflow: hidden;
+    color: var(--text-dark);
+}
+
+/* ==================== 主容器 ==================== */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+}
+
+/* ==================== 下载按钮（右上角） ==================== */
+.download-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 100;
+    background: var(--bg-white);
+    color: var(--word-blue);
+    border: 1px solid #CBD5E1;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-card);
+}
+.download-btn:hover {
+    background: var(--word-blue);
+    color: white;
+    border-color: var(--word-blue);
+    box-shadow: var(--shadow-focus);
+}
+
+/* ==================== 左上角标题 ==================== */
+.page-title {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    z-index: 100;
+    font-size: 1.3em;
+    font-weight: 700;
+    color: var(--word-blue);
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #2B579A, #5B9BD5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ==================== 内容区域（预览 + 对话） ==================== */
+.content-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    margin-top: 60px;   /* 给下载按钮留空间 */
+    margin-bottom: 0px; /* 给底部输入栏留空间 */
+}
+
+/* --- 左侧文档预览 --- */
+.preview-panel {
+    flex: 1;
+    overflow: hidden;
+    background: #E9EDF4;
+    border-right: 1px solid #DCE1EA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-content {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px;
+    background: white;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.03);
+}
+
+.preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-gray);
+    font-size: 1.2em;
+}
+
+/* --- 右侧对话栏（聊天区域） --- */
+.chat-panel {
+    width: 350px;
+    background: var(--bg-white);
+    border-left: 1px solid #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 15px rgba(0,0,0,0.02);
+    position: relative;
+}
+/* 渐变蓝色边框效果（只在右侧聊天栏上应用） */
+.chat-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -3px;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(to bottom, var(--word-blue), var(--word-blue-bright), transparent);
+    opacity: 0.7;
+}
+
+.chat-header {
+    padding: 20px 16px 10px;
+    border-bottom: 1px solid #EDF2F7;
+}
+.chat-header h3 {
+    font-size: 1.3em;
+    color: var(--word-blue);
+    font-weight: 700;
+}
+
+.chat-config {
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #EDF2F7;
+}
+.chat-config input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
+}
+.chat-config button {
+    padding: 8px 14px;
+    background: var(--word-blue);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+.chat-config button:hover {
+    background: var(--word-blue-light);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+/* 消息样式保持原有可用 */
+.message {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    max-width: 100%;
+    word-wrap: break-word;
+    font-size: 0.9em;
+}
+.message.user { background: #E8F0FE; }
+.message.ai { background: #F1F5F9; }
+.message.system { background: #FFF8E1; font-size: 0.85em; }
+
+/* ==================== 底部悬浮输入栏（药丸式） ==================== */
+.floating-input-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 440px);
+    max-width: 800px;
+    min-width: 500px;
+    z-index: 200;
+    background: transparent;
+    animation: floatIn 0.5s ease-out;
+}
+
+@keyframes floatIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.input-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 50px;
+    padding: 6px 8px;
+    gap: 8px;
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 10px 15px -3px rgba(0, 0, 0, 0.05),
+        0 0 0 1px rgba(43, 87, 154, 0.1),
+        0 0 20px rgba(43, 87, 154, 0.15),
+        0 8px 32px rgba(43, 87, 154, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+/* 外围悬浮光晕 */
+.input-row::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 52px;
+    background: linear-gradient(
+        135deg,
+        #2B579A 0%,
+        #4472C4 25%,
+        #5B9BD5 50%,
+        #82B4F2 75%,
+        #A3C9F1 100%
+    );
+    opacity: 0.6;
+    z-index: -1;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: blur(0.5px);
+    pointer-events: none;   /* 新增 */
+}
+
+/* 内层背景 */
+.input-row::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: -1;
+    pointer-events: none;   /* 新增 */
+}
+
+/* 获得焦点时效果增强 */
+.input-row:focus-within {
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 10px 25px -5px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(43, 87, 154, 0.2),
+        0 0 30px rgba(43, 87, 154, 0.25),
+        0 12px 40px rgba(43, 87, 154, 0.15);
+    transform: translateY(-2px);
+}
+
+.input-row:focus-within::before {
+    opacity: 0.9;
+    filter: blur(1px);
+    background: linear-gradient(
+        135deg,
+        #2B579A 0%,
+        #4472C4 20%,
+        #5B9BD5 50%,
+        #82B4F2 80%,
+        #B8D4F7 100%
+    );
+}
+
+/* 上传按钮（+号） */
+.upload-pill-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2B579A, #4472C4);
+    color: white;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(43, 87, 154, 0.3);
+}
+
+.upload-pill-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(43, 87, 154, 0.4);
+    background: linear-gradient(135deg, #4472C4, #5B9BD5);
+}
+
+/* 中间输入框 */
+.input-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    color: var(--text-dark);
+    outline: none;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.input-wrapper input::placeholder {
+    color: #94A3B8;
+    opacity: 0.8;
+    font-size: 14px;
+}
+
+.input-wrapper input:focus::placeholder {
+    opacity: 0.5;
+}
+
+/* 模型选择 */
+.model-select {
+    padding: 8px 12px;
+    border: 1px solid rgba(43, 87, 154, 0.2);
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-dark);
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    max-width: 150px;
+    backdrop-filter: blur(10px);
+}
+
+.model-select:hover {
+    border-color: var(--word-blue);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.model-select:focus {
+    border-color: var(--word-blue-light);
+    box-shadow: 0 0 0 2px rgba(43, 87, 154, 0.1);
+}
+
+/* 发送按钮 */
+.send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2B579A, #5B9BD5);
+    color: white;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(43, 87, 154, 0.3);
+}
+
+.send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(43, 87, 154, 0.5);
+    background: linear-gradient(135deg, #4472C4, #82B4F2);
+}
+
+.send-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==================== 辅助工具按钮 ==================== */
+.execute-btn {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+.execute-btn:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .floating-input-bar {
+        width: calc(100% - 32px);
+        min-width: unset;
+        bottom: 16px;
+    }
+    
+    .input-row {
+        padding: 4px 6px;
+        gap: 4px;
+    }
+    
+    .model-select {
+        max-width: 120px;
+        font-size: 12px;
+    }
+}
+
+
+.input-wrapper input:read-only {
+    cursor: default;
+    opacity: 0.8;
+}
+
+.input-wrapper input:read-only:focus {
+    outline: none;
+}

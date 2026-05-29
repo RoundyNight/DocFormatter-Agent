@@ -3,84 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocFormatter Agent - AI 智能排版</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- 第三方库本地引用 -->
     <script src="jszip.min.js"></script>
     <script src="docx-preview.min.js"></script>
-    <title>AI Document Agent - 文档智能排版助手</title>
-    <style>
-        body { margin: 0; font-family: -apple-system, sans-serif; display: flex; height: 100vh; }
-        #sidebar {
-            width: 380px; min-width: 380px;
-            background: #f7f8fa; border-right: 1px solid #ddd;
-            display: flex; flex-direction: column;
-            transition: width 0.3s;
-        }
-        #sidebar.collapsed { width: 40px; min-width: 40px; }
-        #sidebar.collapsed .sidebar-content { display: none; }
-        #toggleSidebar { background: none; border: none; font-size: 20px; cursor: pointer; padding: 10px; align-self: flex-end; }
-        .sidebar-content { padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-        .config-row { display: flex; gap: 5px; align-items: center; }
-        .config-row input, .config-row select { flex: 1; padding: 5px; }
-        #chatMessages { flex: 1; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 10px; min-height: 200px; }
-        .message { margin-bottom: 12px; padding: 8px; border-radius: 6px; max-width: 100%; word-wrap: break-word; }
-        .message.user { background: #e3f2fd; }
-        .message.ai { background: #f0f0f0; }
-        .message.system { background: #fff3e0; font-size: 0.9em; }
-        .input-row { display: flex; gap: 5px; }
-        .input-row input { flex: 1; padding: 8px; }
-        .input-row button { padding: 8px 15px; cursor: pointer; }
-        .execute-btn { background: #4caf50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        .execute-btn:disabled { background: #aaa; cursor: not-allowed; }
-        #mainContent {
-            flex: 1;
-            overflow: hidden;          /* 禁止主区域滚动 */
-            background: #f0f0f0;
-            position: relative;
-        }
-        #docPreview {
-            width: 100%;
-            height: 100%;           /* 填充父容器 */
-            overflow-y: auto;       /* 文档内容超出时在该区域内滚动 */
-            padding: 20px;
-            box-sizing: border-box;
-            background: white;
-        }
-        .hidden { display: none; }
-    </style>
 </head>
 <body>
-    <div id="sidebar">
-        <button id="toggleSidebar">☰</button>
-        <div class="sidebar-content">
-            <h3>AI 排版助手</h3>
-            <div class="config-row">
-                <input type="password" id="apiKey" placeholder="DeepSeek API Key">
-                <button id="testConnBtn">测试连接</button>
+    <div class="app-container">
+        <!-- 右上角下载按钮 -->
+        <div class="page-title">AI文档排版助手</div>
+        <button id="downloadBtn" class="download-btn" title="下载文档">下载文档</button>
+
+        <!-- 主内容区域：左侧预览，右侧对话 -->
+        <div class="content-area">
+            <!-- 左侧文档预览区 -->
+            <div class="preview-panel">
+                <div id="docPreview" class="preview-content">
+                    <div class="preview-placeholder">
+                        <img src="" alt="">
+                        <p>尚未上传文档(若上传解析失败请刷新后再尝试)</p>
+                    </div>
+                </div>
             </div>
-            <div class="config-row">
-                <select id="model">
+
+            <!-- 右侧对话栏 -->
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <h3>AI 排版助手</h3>
+                </div>
+                <div class="chat-config">
+                    <input type="password" id="apiKey" placeholder="DeepSeek API Key">
+                    <button id="testConnBtn" class="btn-link">测试连接</button>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message system">请：1) 填入 API Key 并测试连接；2) 上传一个 .docx 文档；3) 输入排版指令开始对话。</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部悬浮输入栏（药丸形状） -->
+        <div class="floating-input-bar">
+            <div class="input-row">
+                <!-- 上传按钮（+号） -->
+                <input type="file" id="uploadInput" accept=".docx" hidden>
+                <button id="uploadBtn" class="upload-pill-btn" title="上传文档">+</button>
+                <!-- 中间输入框 -->
+                <div class="input-wrapper">
+                    <input type="text" id="userInput" placeholder="点击“+”上传文档" readonly>
+                </div>
+                <!-- 模型选择 -->
+                <select id="model" class="model-select">
                     <option value="deepseek-chat">deepseek-chat</option>
                     <option value="deepseek-reasoner">deepseek-reasoner</option>
                     <option value="deepseek-coder">deepseek-coder</option>
                 </select>
-            </div>
-            <div class="config-row">
-                <input type="file" id="uploadInput" accept=".docx" class="hidden">
-                <button id="uploadBtn">上传文档</button>
-                <button id="downloadBtn">下载文档</button>
-                <span id="fileName" style="font-size:0.9em;">未选择</span>
-            </div>
-            <div id="chatMessages">
-                <div class="message system">👉 请：1) 填入 API Key 并测试连接；2) 上传一个 .docx 文档；3) 输入排版指令开始对话。</div>
-            </div>
-            <div class="input-row">
-                <input type="text" id="userInput" placeholder="输入排版指令...">
-                <button id="sendBtn">发送</button>
+                <!-- 发送按钮（可隐藏，通过回车发送） -->
+                <button id="sendBtn" class="send-btn">→</button>
             </div>
         </div>
     </div>
-    <div id="mainContent">
-        <div id="docPreview"></div>
-    </div>
+
     <script src="chat.js"></script>
 </body>
 </html>
