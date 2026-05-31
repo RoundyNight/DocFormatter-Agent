@@ -14,8 +14,9 @@ test-docs/~$test.docx
 backend/workspace/current.docx
 test-docs/test.docx
 backend/prompts/system_prompt - 副本.txt
-backend/prompts/system_prompt - 副本.txt:Zone.Identifier
 test-docs/test.docx
 *Zone.Identifier
 chroma_db/
 backend/retriever_chroma.py
+test-docs/实验报告模板.docx
+test-docs/实验报告模板.docx

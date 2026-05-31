@@ -42,6 +42,7 @@ KEY_MAPPING = {
     "outlineLevel": "prop.outlineLvl.val",
 }
 
+# 计算动态基准线：统计文档中最常见的样式值，作为默认样式的参考
 def calculate_dynamic_baseline(raw_nodes):
     style_counters = {key: Counter() for key in DYNAMIC_CHECK_KEYS}
 
@@ -70,6 +71,7 @@ def calculate_dynamic_baseline(raw_nodes):
             dynamic_baseline[key] = style_counters[key][most_common_str]
     return dynamic_baseline
 
+# 提取智能样式：根据当前节点的格式与基准线对比，提取需要保留的样式属性，并映射为 OfficeCLI 参数名
 def extract_smart_styles(format_dict, baseline):
     smart_styles = {}
     for internal_key in CORE_STYLE_KEYS:
@@ -95,6 +97,7 @@ def extract_smart_styles(format_dict, baseline):
             smart_styles[mapped_key] = val
     return smart_styles
 
+# 处理段落节点：提取文本、样式，简化相同的json，并处理 Runs 中的局部格式突变
 def process_paragraph(node, document_baseline, state_tracker):
     path = node.get("path", "")
     text = node.get("text", "").strip()
@@ -140,6 +143,7 @@ def process_paragraph(node, document_baseline, state_tracker):
 
     return clean_node
 
+# 处理表格节点：递归处理表格结构，提取行、单元格、段落信息，并应用样式基准线
 def process_table(node, document_baseline):
     table_node = {"path": node.get("path"), "type": "table", "rows": []}
     for row in node.get("children", []):
@@ -156,6 +160,7 @@ def process_table(node, document_baseline):
         table_node["rows"].append(row_data)
     return table_node
 
+# 主函数：脱水文档，返回简化的段落和表格结构，包含智能样式提取和动态基准线计算
 def dehydrate_document(raw_json):
     try:
         if not raw_json or "data" not in raw_json: return []

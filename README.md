@@ -98,6 +98,6 @@ AI-Document-Agent/
 
 ## 📄 许可
 
-MIT License
+Apache 2.0
 
 ---
