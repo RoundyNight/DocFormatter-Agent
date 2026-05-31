@@ -100,14 +100,18 @@ def extract_smart_styles(format_dict, baseline):
 # 处理段落节点：提取文本、样式，简化相同的json，并处理 Runs 中的局部格式突变
 def process_paragraph(node, document_baseline, state_tracker):
     path = node.get("path", "")
-    text = node.get("text", "").strip()
+    raw_text = node.get("text", "").strip()
     style_name = node.get("style", "Normal")
     format_dict = node.get("format", {})
 
-    if not text:
+    if not raw_text:
         return {"path": path, "text": ""}
 
-    clean_node = {"path": path, "text": text}
+    # 【核心优化】：截断文本，只保留前 30 个字符。
+    # 足够 AI 判断它是“摘要”、“1.1 引言”还是普通正文，同时大幅减少 Token 消耗和注意力分散。
+    display_text = raw_text[:30] + "..." if len(raw_text) > 30 else raw_text
+    
+    clean_node = {"path": path, "text": display_text}
 
     if style_name != "Normal" and style_name != "Normal (Web)":
         clean_node["style"] = style_name
@@ -121,10 +125,10 @@ def process_paragraph(node, document_baseline, state_tracker):
             clean_node.update(parent_styles)
         state_tracker["last_styles"] = parent_styles
 
-    # 处理 Runs (局部格式突变)
+    # 处理 Runs (局部格式突变) - 同样截断文本
     runs_diff = []
     raw_children = node.get("children", [])
-    if len(raw_children) == 1 and raw_children[0].get("type") == "run" and raw_children[0].get("text", "").strip() == text:
+    if len(raw_children) == 1 and raw_children[0].get("type") == "run" and raw_children[0].get("text", "").strip() == raw_text:
         pass
     else:
         for child in raw_children:
@@ -135,7 +139,8 @@ def process_paragraph(node, document_baseline, state_tracker):
                 run_format = child.get("format", {})
                 run_specific_styles = extract_smart_styles(run_format, format_dict)
                 if run_specific_styles:
-                    run_diff_node = {"path": child.get("path"), "text": run_text}
+                    run_display_text = run_text[:20] + "..." if len(run_text) > 20 else run_text
+                    run_diff_node = {"path": child.get("path"), "text": run_display_text}
                     run_diff_node.update(run_specific_styles)
                     runs_diff.append(run_diff_node)
     if runs_diff:

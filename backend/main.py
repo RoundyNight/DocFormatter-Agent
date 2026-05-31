@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import subprocess
 from fastapi import FastAPI, HTTPException, File, UploadFile
@@ -81,6 +81,7 @@ def get_raw_document():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 解析文档并脱水：返回简化的段落和表格结构，包含智能样式提取和动态基准线计算
 @app.get("/api/parse-doc")
 def parse_document():
     doc_path = get_current_doc_path()
@@ -166,13 +167,14 @@ async def chat_with_ai(req: ChatRequest):
     except Exception:
         pass
 
+   # 根据用户消息匹配模板，生成提示词
     matched_content = match_template(req.message)
     template_prompt = ""
     if matched_content:
         template_prompt = (
-            "用户指定了如下排版规范，请严格遵循所有细节（字体、字号、行距、缩进等），逐条转换为工具调用。\n"
-            "如果规范中定义了不同部分的样式（如标题、正文、摘要），请根据文档的语义（如“摘要”二字、标题层级）来识别段落角色并执行对应设置。\n"
-            f"排版规范：\n{matched_content}\n\n"
+            "用户指定了如下排版规范（若用户未明确指定，则为系统默认的通用规范），请严格遵循所有细节，逐条转换为工具调用。\n"
+            "请根据文档的语义（如“摘要”二字、标题层级编号）来识别段落角色并执行对应设置。\n"
+            f"【排版规范】：\n{matched_content}\n\n"
         )
     else:
         template_prompt = "用户未指定特定排版规范，请根据通用美观原则排版。\n"
