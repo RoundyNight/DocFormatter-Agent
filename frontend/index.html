@@ -5,29 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DocFormatter Agent - AI 智能排版</title>
     <link rel="stylesheet" href="style.css">
-    <!-- 第三方库本地引用 -->
     <script src="jszip.min.js"></script>
     <script src="docx-preview.min.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- 右上角下载按钮 -->
         <div class="page-title">AI文档排版助手</div>
         <button id="downloadBtn" class="download-btn" title="下载文档">下载文档</button>
 
-        <!-- 主内容区域：左侧预览，右侧对话 -->
         <div class="content-area">
-            <!-- 左侧文档预览区 -->
             <div class="preview-panel">
                 <div id="docPreview" class="preview-content">
                     <div class="preview-placeholder">
-                        <img src="" alt="">
                         <p>尚未上传文档(若上传解析失败请刷新后再尝试)</p>
                     </div>
                 </div>
             </div>
 
-            <!-- 右侧对话栏 -->
             <div class="chat-panel">
                 <div class="chat-header">
                     <h3>AI 排版助手</h3>
@@ -36,29 +30,25 @@
                     <input type="password" id="apiKey" placeholder="DeepSeek API Key">
                     <button id="testConnBtn" class="btn-link">测试连接</button>
                 </div>
+                <div id="statusBar" class="status-bar idle" style="display:none"></div>
                 <div class="chat-messages" id="chatMessages">
-                    <div class="message system">请：1) 填入 API Key 并测试连接；2) 上传一个 .docx 文档；3) 输入排版指令开始对话。</div>
+                    <div class="message system">请按：1) 填入 API Key 并测试连接；2) 上传一个 .docx 文档；3) 输入排版指令开始对话。</div>
                 </div>
             </div>
         </div>
 
-        <!-- 底部悬浮输入栏（药丸形状） -->
         <div class="floating-input-bar">
             <div class="input-row">
-                <!-- 上传按钮（+号） -->
                 <input type="file" id="uploadInput" accept=".docx" hidden>
                 <button id="uploadBtn" class="upload-pill-btn" title="上传文档">+</button>
-                <!-- 中间输入框 -->
                 <div class="input-wrapper">
-                    <input type="text" id="userInput" placeholder="点击“+”上传文档" readonly>
+                    <input type="text" id="userInput" placeholder="点击"+"上传文档" readonly>
                 </div>
-                <!-- 模型选择 -->
                 <select id="model" class="model-select">
                     <option value="deepseek-chat">deepseek-chat</option>
                     <option value="deepseek-reasoner">deepseek-reasoner</option>
                     <option value="deepseek-coder">deepseek-coder</option>
                 </select>
-                <!-- 发送按钮（可隐藏，通过回车发送） -->
                 <button id="sendBtn" class="send-btn">→</button>
             </div>
         </div>

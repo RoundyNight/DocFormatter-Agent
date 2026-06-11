@@ -1,15 +1,19 @@
-﻿import json
+import json
 import os
+import uuid
 import subprocess
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from dehydrator import dehydrate_document, calculate_dynamic_baseline  # 合并导入
-from executor import execute_operations
-from mcp_server import TOOL_MAP # MCP工具清单
-from retriever import match_template # 模板检索函数
-from fastapi.responses import FileResponse # 用于返回文件下载响应
+from pydantic import BaseModel, Field
+from fastapi.responses import StreamingResponse, FileResponse
+from dehydrator import dehydrate_document, calculate_dynamic_baseline
+from doc_tools import all_tools  # LangChain @tool 列表
+from retriever import match_template
 import httpx
+
+from agent import agent_graph
+from langgraph.types import Command
+from langchain_core.messages import AIMessage, ToolMessage
 
 app = FastAPI(title="AI Document Agent Backend")
 
@@ -81,7 +85,6 @@ def get_raw_document():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 解析文档并脱水：返回简化的段落和表格结构，包含智能样式提取和动态基准线计算
 @app.get("/api/parse-doc")
 def parse_document():
     doc_path = get_current_doc_path()
@@ -100,7 +103,6 @@ def parse_document():
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        # 直接把 traceback 放回响应里，方便浏览器查看
         raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}\n\n{tb}")
 
 @app.post("/api/upload-doc")
@@ -133,10 +135,52 @@ class ToolCall(BaseModel):
 class ExecuteRequest(BaseModel):
     tool_calls: list[ToolCall]
 
-# ---------------- AI 对话路由 ----------------
+# ---------- Agent 请求模型 ----------
+class AgentStartRequest(BaseModel):
+    api_key: str
+    model: str
+    dehydrated_data: list
+    message: str
+
+class AgentContinueRequest(BaseModel):
+    thread_id: str = Field(..., description="Agent 会话线程ID")
+    decision: str = Field(..., description="approve 或 revise")
+    feedback: str = Field(default="", description="修订意见（decision=revise 时必填）")
+
+# ---------- Agent SSE 辅助 ----------
+STEP_LABELS = {
+    "analyze_done": "分析文档中",
+    "plan_done": "规划建议中",
+    "error": "出错了",
+    "execute_done": "执行完成",
+}
+
+def format_sse(event: str, data: dict) -> str:
+    """格式化 SSE 事件"""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+def _extract_plan_from_messages(messages: list) -> dict:
+    """从 AIMessage.tool_calls 提取前端可读的 plan 格式"""
+    tool_calls_info = []
+    for m in reversed(messages):
+        if isinstance(m, AIMessage) and m.tool_calls:
+            for tc in m.tool_calls:
+                tool_calls_info.append({"tool": tc["name"], "arguments": tc["args"]})
+            break
+    return {"tool_calls": tool_calls_info}
+
+def _extract_results_from_messages(messages: list) -> list:
+    """从 ToolMessage 提取执行结果"""
+    results = []
+    for m in messages:
+        if isinstance(m, ToolMessage):
+            status = "error" if m.status == "error" else "success"
+            results.append({"tool": m.name, "status": status, "result": m.content})
+    return results
+
+# ---------------- AI 对话路由（原有，保留） ----------------
 @app.post("/api/chat")
 async def chat_with_ai(req: ChatRequest):
-    # 动态获取文档基线
     baseline_text = ""
     try:
         doc_path = get_current_doc_path()
@@ -167,13 +211,12 @@ async def chat_with_ai(req: ChatRequest):
     except Exception:
         pass
 
-   # 根据用户消息匹配模板，生成提示词
     matched_content = match_template(req.message)
     template_prompt = ""
     if matched_content:
         template_prompt = (
             "用户指定了如下排版规范（若用户未明确指定，则为系统默认的通用规范），请严格遵循所有细节，逐条转换为工具调用。\n"
-            "请根据文档的语义（如“摘要”二字、标题层级编号）来识别段落角色并执行对应设置。\n"
+            "请根据文档的语义（如\"摘要\"二字、标题层级编号）来识别段落角色并执行对应设置。\n"
             f"【排版规范】：\n{matched_content}\n\n"
         )
     else:
@@ -204,6 +247,7 @@ async def chat_with_ai(req: ChatRequest):
                     "model": req.model,
                     "messages": messages,
                     "temperature": 0.1,
+                    "max_tokens": 32768,
                     "response_format": {"type": "json_object"}
                 },
                 timeout=90.0
@@ -220,39 +264,37 @@ async def chat_with_ai(req: ChatRequest):
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=f"请求大模型失败: {str(e)}")
 
-# ---------------- 执行修改路由 ----------------
+# ---------------- 执行修改路由（原有，保留） ----------------
 @app.post("/api/execute")
 async def execute_ai_operations(req: ExecuteRequest):
     doc_path = get_current_doc_path()
     if not os.path.exists(doc_path):
         raise HTTPException(status_code=404, detail="当前工作区没有文档，请先上传")
-
     results = []
     for call in req.tool_calls:
         tool_name = call.tool
         args = call.arguments
-        if tool_name not in TOOL_MAP:
+        # 用 @tool 函数替代 TOOL_MAP
+        tool_func = None
+        for t in all_tools:
+            if t.name == tool_name:
+                tool_func = t
+                break
+        if tool_func is None:
             results.append({"tool": tool_name, "status": "failed", "reason": "未知工具"})
             continue
         try:
-            func = TOOL_MAP[tool_name]
-            # 如果工具是 async，需要 await；这里统一在同步路由中处理 async
-            import asyncio
-            if asyncio.iscoroutinefunction(func):
-                res = await func(**args)
-            else:
-                res = func(**args)
-            results.append({"tool": tool_name, "status": "success", "result": res})
+            res = await tool_func.ainvoke(args) if hasattr(tool_func, "ainvoke") else tool_func.invoke(args)
+            results.append({"tool": tool_name, "status": "success", "result": str(res)})
         except Exception as e:
             results.append({"tool": tool_name, "status": "error", "reason": str(e)})
-
     success_count = sum(1 for r in results if r["status"] == "success")
     return {
         "status": "success" if success_count == len(req.tool_calls) else "partial_success",
         "details": results
     }
 
-#---------------- 文档下载路由 ----------------
+# ---------------- 文档下载路由 ----------------
 @app.get("/api/download-doc")
 def download_doc():
     doc_path = get_current_doc_path()
@@ -267,3 +309,117 @@ def download_doc():
 @app.get("/")
 def read_root():
     return {"status": "success", "message": "Doc-Agent 后端引擎与过滤层已启动"}
+
+# ---------- Agent SSE 路由 ----------
+@app.post("/api/agent/start")
+async def agent_start(req: AgentStartRequest):
+    """启动 Agent 流程，通过 SSE 流式推送状态更新"""
+    doc_path = get_current_doc_path()
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+
+    initial_state = {
+        "user_message": req.message,
+        "dehydrated_data": req.dehydrated_data,
+        "api_key": req.api_key,
+        "model": req.model,
+        "doc_path": doc_path,
+        "baseline_text": "",
+        "template_prompt": "",
+        "human_decision": "",
+        "human_feedback": "",
+        "current_step": "",
+        "error": "",
+        "messages": [],  # add_messages reducer 起始为空列表
+    }
+
+    async def stream():
+        try:
+            result = await agent_graph.ainvoke(initial_state, config=config)
+
+            for step_name, step_label in STEP_LABELS.items():
+                step_value = result.get("current_step", "")
+                if step_value == step_name:
+                    yield format_sse("state", {
+                        "step": step_name,
+                        "label": step_label,
+                        "thread_id": thread_id,
+                    })
+
+            state_snapshot = agent_graph.get_state(config=config)
+            next_nodes = state_snapshot.next
+
+            if next_nodes:
+                # interrupt: 从 AIMessage 提取 plan
+                plan = _extract_plan_from_messages(state_snapshot.values.get("messages", []))
+                yield format_sse("interrupt", {
+                    "plan": plan,
+                    "thread_id": thread_id,
+                    "label": "等待审核",
+                })
+            else:
+                if result.get("error"):
+                    yield format_sse("error", {
+                        "message": result["error"],
+                        "thread_id": thread_id,
+                    })
+                else:
+                    results = _extract_results_from_messages(state_snapshot.values.get("messages", []))
+                    yield format_sse("result", {
+                        "execution_results": results,
+                        "thread_id": thread_id,
+                        "label": "执行完成",
+                    })
+        except Exception as e:
+            yield format_sse("error", {"message": str(e), "thread_id": thread_id})
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+@app.post("/api/agent/continue")
+async def agent_continue(req: AgentContinueRequest):
+    """用户审核后继续 Agent 流程"""
+    config = {"configurable": {"thread_id": req.thread_id}}
+    resume_value = {"decision": req.decision, "feedback": req.feedback}
+
+    async def stream():
+        try:
+            result = await agent_graph.ainvoke(
+                Command(resume=resume_value), config=config
+            )
+
+            for step_name, step_label in STEP_LABELS.items():
+                step_value = result.get("current_step", "")
+                if step_value == step_name:
+                    yield format_sse("state", {
+                        "step": step_name,
+                        "label": step_label,
+                        "thread_id": req.thread_id,
+                    })
+
+            state_snapshot = agent_graph.get_state(config=config)
+            next_nodes = state_snapshot.next
+
+            if next_nodes:
+                plan = _extract_plan_from_messages(state_snapshot.values.get("messages", []))
+                yield format_sse("interrupt", {
+                    "plan": plan,
+                    "thread_id": req.thread_id,
+                    "label": "等待审核（修订版）",
+                })
+            else:
+                if result.get("error"):
+                    yield format_sse("error", {
+                        "message": result["error"],
+                        "thread_id": req.thread_id,
+                    })
+                else:
+                    results = _extract_results_from_messages(state_snapshot.values.get("messages", []))
+                    yield format_sse("result", {
+                        "execution_results": results,
+                        "thread_id": req.thread_id,
+                        "label": "执行完成",
+                    })
+        except Exception as e:
+            yield format_sse("error", {"message": str(e), "thread_id": req.thread_id})
+
+    return StreamingResponse(stream(), media_type="text/event-stream")

@@ -445,3 +445,121 @@ body {
 .input-wrapper input:read-only:focus {
     outline: none;
 }
+
+/* ==================== Agent 状态栏 ==================== */
+.status-bar {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    margin: 8px 16px 4px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+.status-bar.idle {
+    display: none;
+}
+.status-bar.active {
+    background: linear-gradient(135deg, #E8F0FE, #D4E4FC);
+    color: var(--word-blue);
+    border: 1px solid rgba(43, 87, 154, 0.3);
+}
+.status-bar.active::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--word-blue);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.status-bar.review {
+    background: linear-gradient(135deg, #FFF8E1, #FFE0B2);
+    color: #E65100;
+    border: 1px solid rgba(230, 81, 0, 0.3);
+}
+.status-bar.success {
+    background: #E8F5E9;
+    color: #2E7D32;
+    border: 1px solid rgba(46, 125, 50, 0.3);
+}
+.status-bar.error {
+    background: #FFEBEE;
+    color: #C62828;
+    border: 1px solid rgba(198, 40, 40, 0.3);
+}
+
+/* ==================== 审核按钮 ==================== */
+.review-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+}
+.approve-btn {
+    background: linear-gradient(135deg, #2E7D32, #43A047);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.approve-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
+}
+.revise-btn {
+    background: var(--bg-white);
+    color: var(--word-blue);
+    border: 1px solid #CBD5E1;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.revise-btn:hover {
+    background: #E8F0FE;
+    border-color: var(--word-blue);
+}
+
+/* ==================== 修订输入 ==================== */
+.revise-input-area {
+    margin-top: 10px;
+}
+.revise-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+    margin-bottom: 8px;
+}
+.revise-input:focus {
+    outline: none;
+    border-color: var(--word-blue);
+    box-shadow: 0 0 0 2px rgba(43, 87, 154, 0.15);
+}
+.revise-submit-btn {
+    background: linear-gradient(135deg, var(--word-blue), var(--word-blue-light));
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.revise-submit-btn:hover {
+    background: linear-gradient(135deg, var(--word-blue-light), var(--word-blue-bright));
+}

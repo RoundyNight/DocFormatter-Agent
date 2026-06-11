@@ -1,6 +1,6 @@
 let currentDehydratedData = null;
+let currentThreadId = null;
 
-// 只保留存在的元素
 const apiKeyInput = document.getElementById("apiKey");
 const modelSelect = document.getElementById("model");
 const testConnBtn = document.getElementById("testConnBtn");
@@ -9,6 +9,7 @@ const uploadBtn = document.getElementById("uploadBtn");
 const chatMessages = document.getElementById("chatMessages");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
+const statusBar = document.getElementById("statusBar");
 
 // 本地存储恢复
 const savedApiKey = localStorage.getItem("deepseek_api_key");
@@ -34,7 +35,7 @@ testConnBtn.addEventListener("click", async () => {
             headers: { Authorization: `Bearer ${apiKey}` }
         });
         if (resp.ok) {
-            alert("连接成功！");
+            alert("连接成功!");
         } else {
             const err = await resp.json();
             alert("连接失败: " + (err.error?.message || resp.statusText));
@@ -48,9 +49,7 @@ testConnBtn.addEventListener("click", async () => {
 });
 
 // 上传
-uploadBtn.addEventListener("click", () => {
-    uploadInput.click();
-});
+uploadBtn.addEventListener("click", () => uploadInput.click());
 
 uploadInput.addEventListener("change", async (e) => {
     const file = e.target.files[0];
@@ -59,8 +58,7 @@ uploadInput.addEventListener("change", async (e) => {
     formData.append("file", file);
     try {
         const uploadResp = await fetch("http://127.0.0.1:8000/api/upload-doc", {
-            method: "POST",
-            body: formData
+            method: "POST", body: formData
         });
         if (!uploadResp.ok) throw new Error("上传失败");
         const parseResp = await fetch("http://127.0.0.1:8000/api/parse-doc");
@@ -69,22 +67,75 @@ uploadInput.addEventListener("change", async (e) => {
         currentDehydratedData = parseData.data;
         appendMessage("system", `已上传并解析文档: ${file.name}`);
         loadPreview();
-        // 上传成功后启用输入框，开始轮播提示
         if (userInput) {
-            userInput.placeholder = "试试发送“帮我优化文档格式”";
-            userInput.removeAttribute('readonly');
+            userInput.placeholder = "输入排版需求，如\"帮我优化文档格式\"";
+            userInput.removeAttribute("readonly");
         }
     } catch (err) {
         alert("上传或解析出错: " + err.message);
     }
 });
 
-sendBtn.addEventListener("click", sendMessage);
+// ---------- 状态栏管理 ----------
+function setStatus(label, variant = "active") {
+    statusBar.textContent = label;
+    statusBar.className = "status-bar " + variant;
+    statusBar.style.display = "block";
+}
+function clearStatus() {
+    statusBar.textContent = "";
+    statusBar.className = "status-bar idle";
+    statusBar.style.display = "none";
+}
+
+// ---------- SSE 解析 ----------
+async function fetchSSE(url, body, onEvent) {
+    const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+        const errText = await resp.text();
+        onEvent("error", { message: errText });
+        return;
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // last incomplete line
+        let currentEvent = "";
+        let currentData = "";
+        for (const line of lines) {
+            if (line.startsWith("event: ")) {
+                currentEvent = line.slice(7).trim();
+            } else if (line.startsWith("data: ")) {
+                currentData = line.slice(6).trim();
+            } else if (line === "" && currentEvent && currentData) {
+                try {
+                    onEvent(currentEvent, JSON.parse(currentData));
+                } catch (e) {
+                    onEvent("error", { message: "SSE parse error" });
+                }
+                currentEvent = "";
+                currentData = "";
+            }
+        }
+    }
+}
+
+// ---------- Agent 交互 ----------
+sendBtn.addEventListener("click", startAgent);
 userInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
+    if (e.key === "Enter") startAgent();
 });
 
-async function sendMessage() {
+async function startAgent() {
     const apiKey = apiKeyInput.value.trim();
     const model = modelSelect.value;
     const message = userInput.value.trim();
@@ -94,42 +145,183 @@ async function sendMessage() {
 
     appendMessage("user", message);
     userInput.value = "";
-    const thinkingId = appendMessage("ai", "思考中...");
+    setStatus("分析文档中...", "active");
 
-    try {
-        const resp = await fetch("http://127.0.0.1:8000/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                api_key: apiKey,
-                model: model,
-                dehydrated_data: currentDehydratedData,
-                message: message
-            })
-        });
-        const data = await resp.json();
-        removeMessage(thinkingId);
-
-        if (data.status === "success") {
-            if (data.response && data.response.tool_calls) {
-                const html = formatToolCalls(data.response.tool_calls);
-                const msgId = appendMessage("ai", html);
-                addExecuteButton(msgId, data.response.tool_calls);
-            } else if (data.raw_response) {
-                appendMessage("ai", "AI 返回了非 JSON 内容:\n" + data.raw_response);
-            } else {
-                appendMessage("ai", "操作列表为空或格式错误");
-            }
-        } 
-        else {
-            appendMessage("ai", "错误: " + (data.detail || JSON.stringify(data)));
+    await fetchSSE("http://127.0.0.1:8000/api/agent/start", {
+        api_key: apiKey,
+        model: model,
+        dehydrated_data: currentDehydratedData,
+        message: message,
+    }, (event, data) => {
+        if (event === "state") {
+            setStatus(data.label, "active");
+        } else if (event === "interrupt") {
+            currentThreadId = data.thread_id;
+            setStatus(data.label, "review");
+            showPlanForReview(data.plan);
+        } else if (event === "result") {
+            currentThreadId = null;
+            setStatus(data.label, "success");
+            showExecutionResult(data.execution_results);
+            loadPreview();
+        } else if (event === "error") {
+            setStatus("出错了", "error");
+            appendMessage("ai", "错误: " + data.message);
         }
-    } catch (err) {
-        removeMessage(thinkingId);
-        appendMessage("ai", "请求失败: " + err.message);
-    }
+    });
 }
 
+function showPlanForReview(plan) {
+    const toolCalls = plan.tool_calls || [];
+    if (!toolCalls.length) {
+        appendMessage("ai", "AI 未返回任何排版规划。");
+        return;
+    }
+    let html = `<b>AI 排版规划 (${toolCalls.length} 条操作):</b><br>`;
+    toolCalls.forEach((call, idx) => {
+        html += `<div style="margin:6px 0; padding:5px; background:#f0f0f0; border-radius:4px;">
+            <b>${idx + 1}:</b> ${call.tool}<br>
+            <b>参数:</b> ${JSON.stringify(call.arguments)}
+        </div>`;
+    });
+    const msgId = appendMessage("ai", html);
+    addReviewButtons(msgId);
+}
+
+function addReviewButtons(msgId) {
+    const msgDiv = document.getElementById(msgId);
+    if (!msgDiv) return;
+    const actionsDiv = document.createElement("div");
+    actionsDiv.className = "review-actions";
+
+    const approveBtn = document.createElement("button");
+    approveBtn.className = "approve-btn";
+    approveBtn.textContent = "批准执行";
+    approveBtn.addEventListener("click", () => approvePlan(msgId));
+
+    const reviseBtn = document.createElement("button");
+    reviseBtn.className = "revise-btn";
+    reviseBtn.textContent = "提出修改";
+    reviseBtn.addEventListener("click", () => showReviseInput(msgId));
+
+    actionsDiv.appendChild(approveBtn);
+    actionsDiv.appendChild(reviseBtn);
+    msgDiv.appendChild(actionsDiv);
+}
+
+async function approvePlan(msgId) {
+    const msgDiv = document.getElementById(msgId);
+    if (!msgDiv) return;
+    // 移除审核按钮
+    const actions = msgDiv.querySelector(".review-actions");
+    if (actions) actions.remove();
+    const reviseArea = msgDiv.querySelector(".revise-input-area");
+    if (reviseArea) reviseArea.remove();
+
+    setStatus("执行排版中...", "active");
+
+    await fetchSSE("http://127.0.0.1:8000/api/agent/continue", {
+        thread_id: currentThreadId,
+        decision: "approve",
+        feedback: "",
+    }, (event, data) => {
+        if (event === "state") {
+            setStatus(data.label, "active");
+        } else if (event === "result") {
+            currentThreadId = null;
+            setStatus(data.label, "success");
+            showExecutionResult(data.execution_results);
+            loadPreview();
+        } else if (event === "interrupt") {
+            // 执行后又产生中断（不太可能，但安全处理）
+            currentThreadId = data.thread_id;
+            setStatus(data.label, "review");
+            showPlanForReview(data.plan);
+        } else if (event === "error") {
+            setStatus("出错了", "error");
+            appendMessage("ai", "错误: " + data.message);
+        }
+    });
+}
+
+function showReviseInput(msgId) {
+    const msgDiv = document.getElementById(msgId);
+    if (!msgDiv) return;
+    // 隐藏审核按钮
+    const actions = msgDiv.querySelector(".review-actions");
+    if (actions) actions.style.display = "none";
+
+    const areaDiv = document.createElement("div");
+    areaDiv.className = "revise-input-area";
+
+    const textarea = document.createElement("textarea");
+    textarea.className = "revise-input";
+    textarea.placeholder = "请输入修改意见...";
+    textarea.rows = 3;
+
+    const submitBtn = document.createElement("button");
+    submitBtn.className = "revise-submit-btn";
+    submitBtn.textContent = "提交修改意见";
+    submitBtn.addEventListener("click", () => revisePlan(msgId, textarea.value));
+
+    areaDiv.appendChild(textarea);
+    areaDiv.appendChild(submitBtn);
+    msgDiv.appendChild(areaDiv);
+}
+
+async function revisePlan(msgId, feedback) {
+    if (!feedback.trim()) { alert("请输入修改意见"); return; }
+    const msgDiv = document.getElementById(msgId);
+    if (!msgDiv) return;
+    const reviseArea = msgDiv.querySelector(".revise-input-area");
+    if (reviseArea) reviseArea.remove();
+    const actions = msgDiv.querySelector(".review-actions");
+    if (actions) actions.remove();
+
+    appendMessage("user", "修改意见: " + feedback);
+    setStatus("重新规划中...", "active");
+
+    await fetchSSE("http://127.0.0.1:8000/api/agent/continue", {
+        thread_id: currentThreadId,
+        decision: "revise",
+        feedback: feedback,
+    }, (event, data) => {
+        if (event === "state") {
+            setStatus(data.label, "active");
+        } else if (event === "interrupt") {
+            currentThreadId = data.thread_id;
+            setStatus(data.label, "review");
+            showPlanForReview(data.plan);
+        } else if (event === "result") {
+            currentThreadId = null;
+            setStatus(data.label, "success");
+            showExecutionResult(data.execution_results);
+            loadPreview();
+        } else if (event === "error") {
+            setStatus("出错了", "error");
+            appendMessage("ai", "错误: " + data.message);
+        }
+    });
+}
+
+function showExecutionResult(results) {
+    if (!results || !results.length) {
+        appendMessage("ai", "排版执行完成（无具体操作结果）");
+        return;
+    }
+    const success = results.filter(r => r.status === "success").length;
+    const total = results.length;
+    let html = `<b>执行结果: ${success}/${total} 成功</b><br>`;
+    results.forEach((r, idx) => {
+        const icon = r.status === "success" ? "✓" : "✗";
+        html += `<div style="margin:4px 0; padding:4px; background:#f8f8f8; border-radius:4px;">
+            ${icon} <b>${r.tool}</b>: ${r.status}${r.reason ? " - " + r.reason : ""}
+        </div>`;
+    });
+    appendMessage("ai", html);
+}
+
+// ---------- 消息辅助 ----------
 function appendMessage(role, text) {
     const div = document.createElement("div");
     div.className = `message ${role}`;
@@ -146,59 +338,7 @@ function removeMessage(id) {
     if (el) el.remove();
 }
 
-function formatToolCalls(toolCalls) {
-    if (!toolCalls || toolCalls.length === 0) {
-        return `<p>AI 未返回任何操作。</p>`;
-    }
-    let html = `<b>AI 工具调用 (${toolCalls.length} 条)：</b><br>`;
-    toolCalls.forEach((call, idx) => {
-        html += `<div style="margin:6px 0; padding:5px; background:#f0f0f0; border-radius:4px;">
-            <b>${idx+1}:</b> ${call.tool}<br>
-            <b>参数:</b> ${JSON.stringify(call.arguments)}
-        </div>`;
-    });
-    return html;
-}
-
-function addExecuteButton(msgId, operations) {
-    const msgDiv = document.getElementById(msgId);
-    if (!msgDiv) return;
-
-    const oldBtn = msgDiv.querySelector(".execute-btn");
-    if (oldBtn) oldBtn.remove();
-
-    const btn = document.createElement("button");
-    btn.className = "execute-btn";
-    btn.textContent = "执行这些修改";
-    btn.style.marginTop = "8px";
-    btn.addEventListener("click", async () => {
-        btn.disabled = true;
-        btn.textContent = "执行中...";
-        try {
-            const execResp = await fetch("http://127.0.0.1:8000/api/execute", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tool_calls: operations })
-            });
-            const result = await execResp.json();
-            if (result.status === "success") {
-                alert("修改已成功应用到文档！");
-                loadPreview();
-            } else {
-                alert(`部分操作失败：成功 ${result.success}，失败 ${result.failed}。查看控制台获取详情。`);
-                loadPreview();
-                console.error(result);
-            }
-        } catch (e) {
-            alert("执行失败: " + e.message);
-        }
-        btn.disabled = false;
-        btn.textContent = "执行这些修改";
-    });
-    msgDiv.appendChild(btn);
-}
-
-// 下载按钮
+// ---------- 下载 ----------
 document.getElementById("downloadBtn").addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = "http://127.0.0.1:8000/api/download-doc";
@@ -208,20 +348,19 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     document.body.removeChild(link);
 });
 
-// 预览
+// ---------- 预览 ----------
 async function loadPreview() {
     const previewDiv = document.getElementById("docPreview");
     previewDiv.innerHTML = "加载预览中...";
     try {
         const resp = await fetch("http://127.0.0.1:8000/api/download-doc");
         const blob = await resp.blob();
-        if (typeof docx !== 'undefined' && docx.renderAsync) {
+        if (typeof docx !== "undefined" && docx.renderAsync) {
             await docx.renderAsync(blob, previewDiv);
         } else {
             previewDiv.innerHTML = `<p>预览功能需要 docx-preview 库支持</p>`;
         }
     } catch (error) {
         previewDiv.innerHTML = `<p style="color:red">预览失败: ${error.message}</p>`;
-        console.error(error);
     }
 }
